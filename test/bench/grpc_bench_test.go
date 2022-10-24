@@ -22,6 +22,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -298,6 +299,18 @@ func BenchmarkRPC(b *testing.B) {
 		}
 	})
 
+	b.Run("attach detach repeatition 10", func(b *testing.B) {
+		benchmarkAttachDetachRepeatition(10, b)
+	})
+
+	b.Run("attach detach repeatition 100", func(b *testing.B) {
+		benchmarkAttachDetachRepeatition(100, b)
+	})
+
+	b.Run("attach detach repeatition 1000", func(b *testing.B) {
+		benchmarkAttachDetachRepeatition(1000, b)
+	})
+
 	b.Run("adminCli to server", func(b *testing.B) {
 		adminCli := helper.CreateAdminCli(b, defaultServer.AdminAddr())
 		defer func() { assert.NoError(b, adminCli.Close()) }()
@@ -307,4 +320,74 @@ func BenchmarkRPC(b *testing.B) {
 			assert.NoError(b, benchmarkUpdateProject(ctx, b, 500, adminCli))
 		}
 	})
+}
+
+func benchmarkAttachDetachRepeatition(cnt int, b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		clients := activeClients(b, 2)
+		c1, c2 := clients[0], clients[1]
+		defer cleanupClients(b, clients)
+
+		ctx := context.Background()
+
+		d1 := document.New(key.Key(b.Name() + strconv.Itoa(i)))
+		d2 := document.New(key.Key(b.Name() + strconv.Itoa(i)))
+
+		for j := 0; j < cnt; j++ {
+			err := c1.Attach(ctx, d1)
+			assert.NoError(b, err)
+
+			err = c2.Attach(ctx, d2)
+			assert.NoError(b, err)
+
+			// 01. cli1 watches doc1.
+			wg := sync.WaitGroup{}
+			wg.Add(1)
+
+			// fmt.Println("Watch")
+			watchCtx, cancel := context.WithCancel(ctx)
+			rch, err := c1.Watch(watchCtx, d1)
+			assert.NoError(b, err)
+			go func() {
+				defer wg.Done()
+
+				for {
+					resp := <-rch
+					if resp.Err == io.EOF {
+						fmt.Println("eof")
+						assert.Fail(b, resp.Err.Error())
+						return
+					}
+					assert.NoError(b, resp.Err)
+
+					if resp.Type == client.DocumentsChanged {
+						err := c1.Sync(ctx, resp.Keys...)
+						assert.NoError(b, err)
+						return
+					}
+				}
+			}()
+
+			// 02. cli2 updates doc2.
+			err = d2.Update(func(root *json.Object) error {
+				root.SetString("key"+strconv.Itoa(j), "value")
+				return nil
+			})
+			assert.NoError(b, err)
+
+			err = c2.Sync(ctx)
+			assert.NoError(b, err)
+
+			wg.Wait()
+			cancel()
+
+			assert.Equal(b, d1.Marshal(), d2.Marshal())
+
+			err = c1.Detach(ctx, d1)
+			assert.NoError(b, err)
+
+			err = c2.Detach(ctx, d2)
+			assert.NoError(b, err)
+		}
+	}
 }
