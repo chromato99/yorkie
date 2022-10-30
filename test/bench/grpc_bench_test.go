@@ -23,7 +23,7 @@ import (
 	"fmt"
 	"io"
 	"strconv"
-	"strings"
+	// "strings"
 	"sync"
 	"testing"
 
@@ -163,141 +163,141 @@ func BenchmarkRPC(b *testing.B) {
 		}
 	}()
 
-	b.Run("client to server", func(b *testing.B) {
-		cli, err := client.Dial(
-			defaultServer.RPCAddr(),
-		)
-		assert.NoError(b, err)
-		defer func() {
-			err := cli.Close()
-			assert.NoError(b, err)
-		}()
+	// b.Run("client to server", func(b *testing.B) {
+	// 	cli, err := client.Dial(
+	// 		defaultServer.RPCAddr(),
+	// 	)
+	// 	assert.NoError(b, err)
+	// 	defer func() {
+	// 		err := cli.Close()
+	// 		assert.NoError(b, err)
+	// 	}()
 
-		ctx := context.Background()
-		err = cli.Activate(ctx)
-		assert.NoError(b, err)
+	// 	ctx := context.Background()
+	// 	err = cli.Activate(ctx)
+	// 	assert.NoError(b, err)
 
-		d1 := document.New("doc1")
-		err = cli.Attach(ctx, d1)
-		assert.NoError(b, err)
+	// 	d1 := document.New("doc1")
+	// 	err = cli.Attach(ctx, d1)
+	// 	assert.NoError(b, err)
 
-		for i := 0; i < b.N; i++ {
-			testKey := "testKey"
-			err = d1.Update(func(root *json.Object) error {
-				root.SetNewText(testKey)
-				return nil
-			})
-			assert.NoError(b, err)
+	// 	for i := 0; i < b.N; i++ {
+	// 		testKey := "testKey"
+	// 		err = d1.Update(func(root *json.Object) error {
+	// 			root.SetNewText(testKey)
+	// 			return nil
+	// 		})
+	// 		assert.NoError(b, err)
 
-			benchmarkUpdateAndSync(ctx, b, 100, cli, d1, testKey)
-		}
-	})
+	// 		benchmarkUpdateAndSync(ctx, b, 100, cli, d1, testKey)
+	// 	}
+	// })
 
-	b.Run("client to client via server", func(b *testing.B) {
-		clients := activeClients(b, 2)
-		c1, c2 := clients[0], clients[1]
-		defer cleanupClients(b, clients)
+	// b.Run("client to client via server", func(b *testing.B) {
+	// 	clients := activeClients(b, 2)
+	// 	c1, c2 := clients[0], clients[1]
+	// 	defer cleanupClients(b, clients)
 
-		ctx := context.Background()
+	// 	ctx := context.Background()
 
-		d1 := document.New(key.Key(b.Name()))
-		err := c1.Attach(ctx, d1)
-		assert.NoError(b, err)
-		testKey1 := "testKey1"
-		err = d1.Update(func(root *json.Object) error {
-			root.SetNewText(testKey1)
-			return nil
-		})
-		assert.NoError(b, err)
+	// 	d1 := document.New(key.Key(b.Name()))
+	// 	err := c1.Attach(ctx, d1)
+	// 	assert.NoError(b, err)
+	// 	testKey1 := "testKey1"
+	// 	err = d1.Update(func(root *json.Object) error {
+	// 		root.SetNewText(testKey1)
+	// 		return nil
+	// 	})
+	// 	assert.NoError(b, err)
 
-		d2 := document.New(key.Key(b.Name()))
-		err = c2.Attach(ctx, d2)
-		assert.NoError(b, err)
-		testKey2 := "testKey2"
-		err = d2.Update(func(root *json.Object) error {
-			root.SetNewText(testKey2)
-			return nil
-		})
-		assert.NoError(b, err)
+	// 	d2 := document.New(key.Key(b.Name()))
+	// 	err = c2.Attach(ctx, d2)
+	// 	assert.NoError(b, err)
+	// 	testKey2 := "testKey2"
+	// 	err = d2.Update(func(root *json.Object) error {
+	// 		root.SetNewText(testKey2)
+	// 		return nil
+	// 	})
+	// 	assert.NoError(b, err)
 
-		rch1, err := c1.Watch(ctx, d1)
-		assert.NoError(b, err)
-		rch2, err := c2.Watch(ctx, d2)
-		assert.NoError(b, err)
+	// 	rch1, err := c1.Watch(ctx, d1)
+	// 	assert.NoError(b, err)
+	// 	rch2, err := c2.Watch(ctx, d2)
+	// 	assert.NoError(b, err)
 
-		done1 := make(chan bool)
-		done2 := make(chan bool)
+	// 	done1 := make(chan bool)
+	// 	done2 := make(chan bool)
 
-		for i := 0; i < b.N; i++ {
+	// 	for i := 0; i < b.N; i++ {
 
-			wg := sync.WaitGroup{}
-			wg.Add(2)
-			go func() {
-				defer wg.Done()
-				watchDoc(ctx, b, c1, rch1, done2)
-			}()
-			go func() {
-				defer wg.Done()
-				watchDoc(ctx, b, c2, rch2, done1)
-			}()
+	// 		wg := sync.WaitGroup{}
+	// 		wg.Add(2)
+	// 		go func() {
+	// 			defer wg.Done()
+	// 			watchDoc(ctx, b, c1, rch1, done2)
+	// 		}()
+	// 		go func() {
+	// 			defer wg.Done()
+	// 			watchDoc(ctx, b, c2, rch2, done1)
+	// 		}()
 
-			go func() {
-				benchmarkUpdateAndSync(ctx, b, 50, c1, d1, testKey1)
-				done1 <- true
-			}()
-			go func() {
-				benchmarkUpdateAndSync(ctx, b, 50, c2, d2, testKey2)
-				done2 <- true
-			}()
+	// 		go func() {
+	// 			benchmarkUpdateAndSync(ctx, b, 50, c1, d1, testKey1)
+	// 			done1 <- true
+	// 		}()
+	// 		go func() {
+	// 			benchmarkUpdateAndSync(ctx, b, 50, c2, d2, testKey2)
+	// 			done2 <- true
+	// 		}()
 
-			wg.Wait()
-		}
-	})
+	// 		wg.Wait()
+	// 	}
+	// })
 
-	b.Run("attach large document", func(b *testing.B) {
-		var builder strings.Builder
-		for c := 0; c < 10485000; c++ {
-			builder.WriteString("a")
-		}
-		for i := 0; i < b.N; i++ {
-			func() {
-				clients := activeClients(b, 2)
-				c1, c2 := clients[0], clients[1]
-				defer cleanupClients(b, clients)
+	// b.Run("attach large document", func(b *testing.B) {
+	// 	var builder strings.Builder
+	// 	for c := 0; c < 10485000; c++ {
+	// 		builder.WriteString("a")
+	// 	}
+	// 	for i := 0; i < b.N; i++ {
+	// 		func() {
+	// 			clients := activeClients(b, 2)
+	// 			c1, c2 := clients[0], clients[1]
+	// 			defer cleanupClients(b, clients)
 
-				ctx := context.Background()
-				doc1 := document.New(key.Key(b.Name()))
-				doc2 := document.New(key.Key(b.Name()))
+	// 			ctx := context.Background()
+	// 			doc1 := document.New(key.Key(b.Name()))
+	// 			doc2 := document.New(key.Key(b.Name()))
 
-				err := doc1.Update(func(root *json.Object) error {
-					text := root.SetNewText("k1")
-					text.Edit(0, 0, builder.String())
-					return nil
-				})
-				assert.NoError(b, err)
-				err = doc2.Update(func(root *json.Object) error {
-					text := root.SetNewText("k1")
-					text.Edit(0, 0, builder.String())
-					return nil
-				})
-				assert.NoError(b, err)
+	// 			err := doc1.Update(func(root *json.Object) error {
+	// 				text := root.SetNewText("k1")
+	// 				text.Edit(0, 0, builder.String())
+	// 				return nil
+	// 			})
+	// 			assert.NoError(b, err)
+	// 			err = doc2.Update(func(root *json.Object) error {
+	// 				text := root.SetNewText("k1")
+	// 				text.Edit(0, 0, builder.String())
+	// 				return nil
+	// 			})
+	// 			assert.NoError(b, err)
 
-				wg := sync.WaitGroup{}
-				wg.Add(2)
-				go func() {
-					defer wg.Done()
-					err := c1.Attach(ctx, doc1)
-					assert.NoError(b, err)
-				}()
-				go func() {
-					defer wg.Done()
-					err := c2.Attach(ctx, doc2)
-					assert.NoError(b, err)
-				}()
-				wg.Wait()
-			}()
-		}
-	})
+	// 			wg := sync.WaitGroup{}
+	// 			wg.Add(2)
+	// 			go func() {
+	// 				defer wg.Done()
+	// 				err := c1.Attach(ctx, doc1)
+	// 				assert.NoError(b, err)
+	// 			}()
+	// 			go func() {
+	// 				defer wg.Done()
+	// 				err := c2.Attach(ctx, doc2)
+	// 				assert.NoError(b, err)
+	// 			}()
+	// 			wg.Wait()
+	// 		}()
+	// 	}
+	// })
 
 	b.Run("attach detach repeatition 10", func(b *testing.B) {
 		benchmarkAttachDetachRepeatition(10, b)
@@ -324,9 +324,6 @@ func BenchmarkRPC(b *testing.B) {
 
 func benchmarkAttachDetachRepeatition(cnt int, b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		clients := activeClients(b, 2)
-		c1, c2 := clients[0], clients[1]
-		defer cleanupClients(b, clients)
 
 		ctx := context.Background()
 
@@ -334,6 +331,9 @@ func benchmarkAttachDetachRepeatition(cnt int, b *testing.B) {
 		d2 := document.New(key.Key(b.Name() + strconv.Itoa(i)))
 
 		for j := 0; j < cnt; j++ {
+			clients := activeClients(b, 2)
+			c1, c2 := clients[0], clients[1]
+
 			err := c1.Attach(ctx, d1)
 			assert.NoError(b, err)
 
@@ -383,11 +383,11 @@ func benchmarkAttachDetachRepeatition(cnt int, b *testing.B) {
 
 			assert.Equal(b, d1.Marshal(), d2.Marshal())
 
-			err = c1.Detach(ctx, d1)
-			assert.NoError(b, err)
+			// err = c1.Detach(ctx, d1)
+			// assert.NoError(b, err)
 
-			err = c2.Detach(ctx, d2)
-			assert.NoError(b, err)
+			// err = c2.Detach(ctx, d2)
+			// assert.NoError(b, err)
 		}
 	}
 }
